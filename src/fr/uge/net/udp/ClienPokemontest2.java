@@ -80,9 +80,7 @@ public class ClientPokemontest2 {
     public void launch() throws IOException, InterruptedException {
         try {
             datagramChannel.bind(null);
-            // Read all lines of inFilename opened in UTF-8
             var pokemonNames = Files.readAllLines(Path.of(inFilename), UTF8);
-            // List of Pokemon to write to the output file
             var pokemons = new ArrayList<Pokemon>();
             
             for(var pokemon : pokemonNames){
