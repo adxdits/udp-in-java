@@ -10,6 +10,22 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+
+
+
+
+/**
+ * Le listener (thread en arrière-plan) : il attend les réponses du serveur.
+ * Quand une réponse arrive, il la dépose dans la file (queue.put(response)).
+ *
+ * Le sender (thread principal) : après avoir envoyé une requête, il va
+ * regarder dans la file s'il y a une réponse.
+ *
+ * queue.poll(1, TimeUnit.SECONDS) c'est comme dire :
+ * "Je regarde dans la boîte. S'il y a quelque chose dedans, je le prends.
+ *  Sinon, j'attends 1 seconde max. Si après 1 seconde il n'y a toujours
+ *  rien, je repars les mains vides (null)."
+ */
 public class ClientUpperCaseUDPTimeout {
     public static final int BUFFER_SIZE = 1024;
     private static final int TIMEOUT_SECONDS = 1;
@@ -61,7 +77,7 @@ public class ClientUpperCaseUDPTimeout {
                     sendBuffer.put(cs.encode(line));
                     sendBuffer.flip();
                     dc.send(sendBuffer, server);
-
+                    
                     // Wait up to TIMEOUT_SECONDS for a response
                     var response = queue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     if (response == null) {

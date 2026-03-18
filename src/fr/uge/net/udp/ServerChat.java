@@ -25,7 +25,7 @@ public class ServerChat {
     public String decodeMessage(ByteBuffer buffer){
         var length = buffer.getInt();
         var buff = buffer.slice().limit(length);
-         buffer.position(buffer.position() + length); 
+        buffer.position(buffer.position() + length); 
         return StandardCharsets.UTF_8.decode(buff).toString();
     }
 
