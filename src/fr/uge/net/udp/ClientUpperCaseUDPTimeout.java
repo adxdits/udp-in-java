@@ -10,21 +10,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-
-
-
-
 /**
- * Le listener (thread en arrière-plan) : il attend les réponses du serveur.
- * Quand une réponse arrive, il la dépose dans la file (queue.put(response)).
- *
- * Le sender (thread principal) : après avoir envoyé une requête, il va
- * regarder dans la file s'il y a une réponse.
- *
- * queue.poll(1, TimeUnit.SECONDS) c'est comme dire :
- * "Je regarde dans la boîte. S'il y a quelque chose dedans, je le prends.
- *  Sinon, j'attends 1 seconde max. Si après 1 seconde il n'y a toujours
- *  rien, je repars les mains vides (null)."
+ * UDP client that sends lines to a server, waits for a response, and retries once if necessary.
  */
 public class ClientUpperCaseUDPTimeout {
     public static final int BUFFER_SIZE = 1024;
@@ -47,7 +34,7 @@ public class ClientUpperCaseUDPTimeout {
         try (var dc = DatagramChannel.open()) {
             dc.bind(null);
 
-            // Listener thread: reads responses from the channel and enqueues them
+            // Listener thread
             var listener = Thread.ofPlatform().start(() -> {
                 var buf = ByteBuffer.allocate(BUFFER_SIZE);
                 while (!Thread.interrupted()) {
@@ -77,11 +64,21 @@ public class ClientUpperCaseUDPTimeout {
                     sendBuffer.put(cs.encode(line));
                     sendBuffer.flip();
                     dc.send(sendBuffer, server);
-                    
+
                     // Wait up to TIMEOUT_SECONDS for a response
                     var response = queue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     if (response == null) {
-                        System.out.println("Le serveur n'a pas répondu");
+                        // Retry
+                        sendBuffer.rewind();
+                        dc.send(sendBuffer, server);
+
+                        // Wait again for response
+                        response = queue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                        if (response == null) {
+                            System.out.println("Le serveur n'a pas répondu après la deuxième tentative");
+                        } else {
+                            System.out.println("String: " + response);
+                        }
                     } else {
                         System.out.println("String: " + response);
                     }
