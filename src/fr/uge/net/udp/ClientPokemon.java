@@ -88,24 +88,46 @@ public class ClientPokemon {
      * Decode the response buffer into a Pokemon record.
      * Format: name(UTF8) 0x00 [charName(UTF8) 0x00 INT(BigEndian)]*
      */
-    private Pokemon decodeResponse(ByteBuffer buffer) {
-        var name = readStringUntilZero(buffer);
-        var characteristics = new LinkedHashMap<String, Integer>();
-        while (buffer.hasRemaining()) {
-            characteristics.put(readStringUntilZero(buffer), buffer.getInt());
-        }
-        return new Pokemon(name, characteristics);
+  private Pokemon decodeResponse(ByteBuffer buffer) {
+    // --- Read name ---
+    int start = buffer.position();
+    while (buffer.get() != 0); // find '\0'
+    int end = buffer.position() - 1;
+
+    int oldLimit = buffer.limit();
+    buffer.limit(end);
+    buffer.position(start);
+
+    String name = UTF8.decode(buffer).toString();
+
+    buffer.limit(oldLimit);
+    buffer.position(end + 1); // skip '\0'
+
+    var characteristics = new LinkedHashMap<String, Integer>();
+
+    // --- Read pairs (key\0 + int) ---
+    while (buffer.hasRemaining()) {
+        // Read key
+        start = buffer.position();
+        while (buffer.get() != 0);
+        end = buffer.position() - 1;
+
+        buffer.limit(end);
+        buffer.position(start);
+
+        String key = UTF8.decode(buffer).toString();
+
+        buffer.limit(oldLimit);
+        buffer.position(end + 1); // skip '\0'
+
+        // Read value
+        int value = buffer.getInt();
+
+        characteristics.put(key, value);
     }
 
-    private String readStringUntilZero(ByteBuffer buffer) {
-        var bb = ByteBuffer.allocate(buffer.remaining());
-        byte b;
-        while ((b = buffer.get()) != 0) {
-            bb.put(b);
-        }
-        bb.flip();
-        return UTF8.decode(bb).toString();
-    }
+    return new Pokemon(name, characteristics);
+}
 
     public void launch() throws IOException, InterruptedException {
         try {
