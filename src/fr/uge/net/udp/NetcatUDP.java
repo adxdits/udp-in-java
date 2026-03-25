@@ -7,8 +7,8 @@ import java.nio.channels.DatagramChannel;
 import java.nio.charset.Charset;
 import java.util.Scanner;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.logging.Logger;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import java.util.logging.Logger;
 
 public class NetcatUDP {
     private static final Logger logger = Logger.getLogger(NetcatUDP.class.getName());
@@ -65,7 +65,7 @@ public class NetcatUDP {
 
                 // Attendre la réponse, renvoyer si timeout
                 String response;
-                while ((response = queue.poll(TIMEOUT_MS, MILLISECONDS)) == null) {
+                if ((response = queue.poll(TIMEOUT_MS, MILLISECONDS)) == null) {
                     logger.warning("No response, resending...");
                     sendBuff.rewind();
                     dc.send(sendBuff, server);
