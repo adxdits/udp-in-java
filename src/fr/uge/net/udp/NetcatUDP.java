@@ -7,9 +7,11 @@ import java.nio.channels.DatagramChannel;
 import java.nio.charset.Charset;
 import java.util.Scanner;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.logging.Logger;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NetcatUDP {
+    private static final Logger logger = Logger.getLogger(NetcatUDP.class.getName());
     public static final int BUFFER_SIZE = 1024;
     private static final int TIMEOUT_MS = 300;
 
@@ -40,9 +42,13 @@ public class NetcatUDP {
                         var sender = (InetSocketAddress) dc.receive(recBuff);
                         recBuff.flip();
                         var msg = cs.decode(recBuff).toString();
-                        System.out.println("Received from " + sender + ": " + msg);
+                        logger.info("Received from " + sender + ": " + msg);
                         queue.put(msg);
-                    } catch (IOException | InterruptedException e) {
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    } catch (IOException e) {
+                        logger.severe("IOException in listener: " + e.getMessage());
                         return;
                     }
                 }
@@ -60,11 +66,11 @@ public class NetcatUDP {
                 // Attendre la réponse, renvoyer si timeout
                 String response;
                 while ((response = queue.poll(TIMEOUT_MS, MILLISECONDS)) == null) {
-                    System.out.println("No response, resending...");
+                    logger.warning("No response, resending...");
                     sendBuff.rewind();
                     dc.send(sendBuff, server);
                 }
-                System.out.println("String: " + response);
+                logger.info("String: " + response);
             }
         }
     }
