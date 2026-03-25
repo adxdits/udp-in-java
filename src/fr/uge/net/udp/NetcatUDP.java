@@ -6,15 +6,18 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.Charset;
 import java.util.Scanner;
+import java.util.concurrent.ArrayBlockingQueue;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NetcatUDP {
     public static final int BUFFER_SIZE = 1024;
+    private static final int TIMEOUT_MS = 300;
 
     private static void usage() {
         System.out.println("Usage : NetcatUDP host port charset");
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         if (args.length != 3) {
             usage();
             return;
@@ -22,28 +25,46 @@ public class NetcatUDP {
 
         var server = new InetSocketAddress(args[0], Integer.parseInt(args[1]));
         var cs = Charset.forName(args[2]);
-        var buffer = ByteBuffer.allocate(BUFFER_SIZE);
+        var queue = new ArrayBlockingQueue<String>(1);
 
         try (var scanner = new Scanner(System.in);
              var dc = DatagramChannel.open()) {
             dc.bind(null);
+
+            // Thread listener : reçoit les réponses et les met dans la queue
+            var listener = Thread.ofPlatform().daemon().start(() -> {
+                var recBuff = ByteBuffer.allocate(BUFFER_SIZE);
+                while (!Thread.currentThread().isInterrupted()) {
+                    try {
+                        recBuff.clear();
+                        var sender = (InetSocketAddress) dc.receive(recBuff);
+                        recBuff.flip();
+                        var msg = cs.decode(recBuff).toString();
+                        System.out.println("Received from " + sender + ": " + msg);
+                        queue.put(msg);
+                    } catch (IOException | InterruptedException e) {
+                        return;
+                    }
+                }
+            });
+
+            // Thread principal : lit stdin, envoie, attend la réponse avec retry
+            var sendBuff = ByteBuffer.allocate(BUFFER_SIZE);
             while (scanner.hasNextLine()) {
                 var line = scanner.nextLine();
+                sendBuff.clear();
+                sendBuff.put(cs.encode(line));
+                sendBuff.flip();
+                dc.send(sendBuff, server);
 
-                // Encode and send the line to the server
-                buffer.clear();
-                buffer.put(cs.encode(line));
-                buffer.flip();
-                dc.send(buffer, server);
-
-                // Receive response
-                buffer.clear();
-                var sender = (InetSocketAddress) dc.receive(buffer);
-                buffer.flip();
-
-                // Display results
-                System.out.println("Received " + buffer.remaining() + " bytes from " + sender);
-                System.out.println("String: " + cs.decode(buffer));
+                // Attendre la réponse, renvoyer si timeout
+                String response;
+                while ((response = queue.poll(TIMEOUT_MS, MILLISECONDS)) == null) {
+                    System.out.println("No response, resending...");
+                    sendBuff.rewind();
+                    dc.send(sendBuff, server);
+                }
+                System.out.println("String: " + response);
             }
         }
     }

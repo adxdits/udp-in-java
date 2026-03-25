@@ -54,6 +54,9 @@ public class ClientBetterUpperCaseUDP {
 	 * @return an Optional containing the String represented by buffer, or an empty Optional if the buffer cannot be decoded
 	 */
 	public static Optional<String> decodeMessage(ByteBuffer buffer) {
+		if (buffer.remaining() < Integer.BYTES){
+			return Optional.empty();
+		}
 		var tempBuff = ByteBuffer.allocate(buffer.limit());
 		var size = buffer.getInt();
 		var limit = buffer.limit();

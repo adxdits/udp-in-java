@@ -45,7 +45,6 @@ public class ClientUpperCaseUDPTimeout {
                         var response = cs.decode(buf).toString();
                         queue.put(response);
                     } catch (IOException e) {
-                        // Channel closed, exit loop
                         return;
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -58,8 +57,6 @@ public class ClientUpperCaseUDPTimeout {
             try (var scanner = new Scanner(System.in)) {
                 while (scanner.hasNextLine()) {
                     var line = scanner.nextLine();
-
-                    // Encode and send the line to the server
                     sendBuffer.clear();
                     sendBuffer.put(cs.encode(line));
                     sendBuffer.flip();
@@ -85,7 +82,7 @@ public class ClientUpperCaseUDPTimeout {
                 }
             }
 
-            listener.interrupt();
+        
         }
     }
 }
